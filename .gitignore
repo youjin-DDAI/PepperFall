@@ -1,0 +1,27 @@
+# Allow-list: only code, configs, splits, and the report are tracked.
+/*
+!/.gitignore
+!/README.md
+!/requirements-server.txt
+!/configs/
+!/eval/
+!/models/
+!/train/
+!/scripts/
+!/report/
+
+!/data/
+/data/*
+!/data/__init__.py
+!/data/preprocess/
+!/data/processed/
+/data/processed/*
+!/data/processed/splits/
+
+!/logs/
+/logs/*
+!/logs/*.sh
+
+__pycache__/
+*.pyc
+*.pt

@@ -1,0 +1,12 @@
+data_root: data/processed
+out_root: results/stgcn
+epochs: 50
+batch_size: 64
+lr: 0.001
+weight_decay: 0.0001
+dropout: 0.1
+aug:
+  flip_p: 0.5
+  scale: 0.1          # +-10%
+  rotate_deg: 10      # kept small: body turning horizontal is the key fall cue
+  joint_drop_p: 0.05  # per-joint occlusion (all frames of clip)

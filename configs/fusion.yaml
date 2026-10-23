@@ -1,0 +1,24 @@
+data_root: data/processed
+out_root: results/fusion
+epochs: 50
+batch_size: 64
+lr: 0.001
+weight_decay: 0.0001
+dropout: 0.1          # inside ST-GCN (same as configs/stgcn.yaml)
+fusion:
+  text_hidden: 128
+  hidden: 128
+  dropout: 0.3
+  modality_drop: 0.15 # per sample, drop skeleton or VLM input, each with 15% prob
+xattn:                # mode skel_xattn (models/fusion.py CrossAttnFusion)
+  dim: 256
+  heads: 4
+  layers: 2
+  dropout: 0.1
+  vlm_drop: 0.15      # per sample, drop VLM attention output with 15% prob
+xattn_aux_weight: 0.3 # skeleton aux head loss weight
+aug:                  # skeleton only (same as configs/stgcn.yaml)
+  flip_p: 0.5
+  scale: 0.1
+  rotate_deg: 10
+  joint_drop_p: 0.05

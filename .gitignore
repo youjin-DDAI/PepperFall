@@ -25,3 +25,5 @@
 __pycache__/
 *.pyc
 *.pt
+!/environment.yml
+!/requirements.txt

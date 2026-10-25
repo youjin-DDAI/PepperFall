@@ -4,7 +4,7 @@
 \begin{abstract}
 We build a fall detector for the Pepper robot that fuses ST-GCN skeleton motion with a frozen Qwen2.5-VL.
 All models we train on FallVision reach a video AUROC of 0.99, but a classifier on a \emph{single} skeleton frame already reaches 0.942: the models detect a lying posture, not a fall.
-Training on segment-level fall labels makes ST-GCN rely on motion and raises AUROC on unseen datasets (GMDCSA24 0.932$\to$0.968).
+Adding synthetic data raises AUROC on unseen datasets (GMDCSA24 0.932$\to$0.968), and segment-level fall labels make ST-GCN rely on motion.
 No single modality is reliable on every unseen dataset; fusing both and training on 16 fall-related actions gives the most consistent model (mean unseen AUROC 0.911), although the fusion still uses skeleton motion only weakly.
 \end{abstract}
 
@@ -20,7 +20,7 @@ Our proposal asked two questions.
 For the midterm we first establish the baselines and answer both questions on datasets that the models never see during training, using the camera height of a synthetic dataset as a proxy for the robot view; evaluation on Pepper recordings builds on these baselines.
 Our quantitative objectives are (i) AUROC on unseen datasets, (ii) the AUROC drop when motion is removed from the input, which tells whether a model uses motion at all, and (iii) the false-alarm rate on intentional lying and sitting.
 
-So far we reproduce both baselines, show that the near-perfect in-domain scores come from a static-posture shortcut created by video-level labels, and test segment-level and 16-action labels and five fusion variants against it.
+So far we reproduce both baselines, show that the near-perfect in-domain scores come from a static-posture shortcut created by video-level labels, and test segment-level and 16-action labels and five VLM and fusion variants against it.
 
 \section{Related Work}
 
@@ -62,7 +62,6 @@ A video score is the maximum over its clips.
 \end{figure}
 
 \subsection{Data and preprocessing}
-Clips are 1.6\,s windows with stride 0.8\,s.
 \textbf{FallVision}~\citep{rahman2025fallvision} has 5,866 videos with video-level labels and three scenarios (fall from bed, chair, standing).
 We remove 262 exact or anonymized duplicates (md5) and split by recording session (perceptual-hash clusters of the background), so no room or take appears in two splits (15,569 / 1,841 / 1,660 train/val/test clips).
 \textbf{OF-Syn}~\citep{schneider2025omnifall} has 12,000 synthetic videos with segment labels and camera-elevation metadata; we use the official split (57,600 / 7,200 / 7,200 clips) and transcode it from AV1 to H.264.
@@ -90,7 +89,7 @@ We use AdamW (lr $10^{-3}$, weight decay $10^{-4}$), a one-cycle schedule, batch
 
 \subsection{Baseline reproduction}
 Figure~\ref{fig:baseline} shows the confusion matrices on the FallVision test set (500 videos).
-ST-GCN (Run A) reaches video AUROC $0.986\pm0.001$ and F1 $0.949\pm0.004$ at threshold 0.5 (validation AUROC saturates after about 20 of 50 epochs; logs in our repository).
+ST-GCN (Run A) reaches video AUROC $0.986\pm0.001$ and F1 $0.949\pm0.004$ at threshold 0.5 (validation AUROC saturates after about 20 of 50 epochs).
 Zero-shot Qwen2.5-VL reaches AUROC 0.941 and F1 0.806; most of its errors are missed falls (73 of 268).
 
 \begin{table}[t]
@@ -188,7 +187,7 @@ Table~\ref{tab:iter2} gives the results.
 
 \textbf{Data drives video AUROC; labels drive motion use.}
 Adding OF-Syn with video labels already raises GMDCSA24 video AUROC from 0.932 to 0.963, and switching to event labels adds only 0.005--0.016 (and lowers CAUCAFall for OF-Syn alone).
-What event labels change is \emph{what} the model uses: clip AUROC rises consistently (+0.01 to +0.03), removing motion now costs ST-GCN 0.23 on GMDCSA24 (0.861$\to$0.635, versus 0.05 with video labels), and on GMDCSA24 the alarm rate on the already-fallen state drops from 0.88 to 0.48 (OF-Syn, video vs.\ event label).
+What event labels change is \emph{what} the model uses: clip AUROC rises consistently (+0.01 to +0.04), removing motion now costs ST-GCN 0.23 on GMDCSA24 (0.861$\to$0.635, versus 0.05 with video labels), and on GMDCSA24 the alarm rate on the already-fallen state drops from 0.88 to 0.48 (OF-Syn, video vs.\ event label).
 Video AUROC hides this because a fall video also contains the person lying afterwards, so detecting the posture is enough to rank the video correctly.
 
 \textbf{No single modality wins everywhere.}
@@ -235,7 +234,7 @@ Table~\ref{tab:iter3} compares the binary event label and the multi-class target
 
 \textbf{Multi-class training generalizes better with the same data.}
 The multi-class target raises video AUROC on every unseen dataset for all four models (GMDCSA24 +0.006 to +0.024, ST-GCN A on CAUCAFall +0.096) and raises the mean for every model; the multi-class fusion has the highest mean of all models ($0.911\pm0.002$).
-Clip AUROC gains are smaller, and ST-GCN B loses 0.010 on GMDCSA24 clips. On the OF-Syn test set itself, the VLM and fusion drop slightly (0.003), so the gain is in generalization, not in fitting the training distribution.
+Clip AUROC gains are smaller, and two clip scores drop by 0.010 (ST-GCN B on GMDCSA24, tokmean on CAUCAFall). On the OF-Syn test set itself, the VLM and fusion drop slightly (0.003), so the gain is in generalization, not in fitting the training distribution.
 On GMDCSA24, the multi-class ST-GCN labels only 9\% of intentional \emph{lie\_down} clips as \emph{fall}; its main remaining confusion is \emph{fallen} vs.\ \emph{lying} (20\% of \emph{fallen} clips predicted as \emph{lying}), which posture alone cannot resolve.
 \textbf{Alarming on the fallen state.} When \emph{fallen} clips also count as positives (last two columns), the multi-class models reach 0.925--0.953 on GMDCSA24 and 0.886--0.968 on CAUCAFall, versus 0.811--0.840 and 0.690--0.901 for the binary models, which treat \emph{fallen} as negative.
 \textbf{Cross-attention does not make the skeleton the main input.} Cross-attention fusion (0.872 mean) and its skeleton-main variant (0.886) are not better than concatenation, and freezing the skeleton changes their GMDCSA24 clip AUROC only by 0.016 and 0.026 (0.050 for concatenation): changing the fusion architecture alone does not force the model to use motion, which we address next (Sec.~\ref{sec:next}).
@@ -249,12 +248,12 @@ RQ2: VLM context helps: no single modality is reliable on every dataset, and the
 
 \textbf{Risks.}
 (i) OF-Syn is synthetic and uses fixed cameras, while Pepper moves and sees people from a lower viewpoint at short range.
-(ii) Our unseen test sets are small (100--160 videos), so differences below about 0.03 AUROC are within seed noise.
+(ii) Our unseen test sets are small (100--160 videos), so differences below about 0.03 AUROC, although consistent across seeds, may not hold on other data.
 (iii) Falls onto a bed or mattress are missed by every model.
 
 \textbf{Next steps.}
 (1) \emph{Pepper evaluation.} Record falls, intentional lying, and sitting at several distances with Pepper's head camera, and evaluate the current baselines and the multi-class fusion without retraining. Pepper can also move to a better viewpoint before deciding, as done for pose estimation in~\citep{wang2024pepperpose}.
-(2) \emph{Making the fusion use motion.} Since changing the fusion architecture did not help, we will change the training instead: drop the whole VLM input at random (modality dropout), add an auxiliary loss on the skeleton-only output, and add time-reversed fall clips as negatives (labeled \emph{stand\_up}), which share the posture of a fall but not its direction of motion. Success means a larger drop when the skeleton is frozen without a lower mean AUROC.
+(2) \emph{Making the fusion use motion.} Modality dropout (0.15 in concatenation, 0.5 on the VLM in the skeleton-main cross-attention) and an auxiliary skeleton loss were not enough. We will instead add time-reversed fall clips as negatives (labeled \emph{stand\_up}), which share the posture of a fall but not its direction of motion, and train in two stages: first the ST-GCN alone on event labels, then the fusion with the skeleton branch frozen, so that the VLM can only add to what the skeleton already detects. Success means a larger drop when the skeleton is frozen without a lower mean AUROC.
 (3) \emph{Temporal reasoning over clips.} \emph{Fallen} and \emph{lying} are indistinguishable within 1.6\,s; we will replace the clip maximum with a state sequence (fast descent $\to$ on the floor $\to$ no recovery), so that lying after a detected fall is treated as \emph{fallen}.
 
 \section*{Team Contributions}
@@ -263,7 +262,7 @@ RQ2: VLM context helps: no single modality is reliable on every dataset, and the
 \textbf{Yoobin Park} specified the VLM side of the project: how the VLM is used for fall detection and how its outputs serve as context for the skeleton model.
 
 \section*{Code}
-\textbf{[TODO: GitHub link]}
+\url{https://github.com/youjin-DDAI/PepperFall}
 
 \small
 \begin{thebibliography}{15}

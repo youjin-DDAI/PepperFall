@@ -1,6 +1,6 @@
 # PepperFall
 
-Fall detection for the Pepper robot that fuses skeleton motion (YOLO11x-pose + ST-GCN) with a frozen vision-language model (Qwen2.5-VL-7B).
+Fall detection for the Pepper robot that fuses skeleton motion (YOLO11x-pose + ST-GCN) with a frozen vision-language model (Qwen2.5-VL-7B; smaller Qwen3-VL-2B / Qwen2.5-VL-3B for laptop inference).
 CMU 11-785 (Introduction to Deep Learning) course project, midterm stage.
 
 Each video is cut into 1.6 s clips (16 frames at 10 fps, stride 8).
@@ -95,6 +95,30 @@ python eval/eval_external.py --datasets GMDCSA24 CAUCAFall
 python eval/summarize_event.py       # all models, same protocol -> results/event_summary.md
 python report/make_figs.py           # report figure
 ```
+
+## Checkpoints
+
+| Checkpoint (`checkpoints/`) | VLM | Training labels |
+|---|---|---|
+| `skel_tokmean_q3-2b/OF-Syn-multiclass_runA_T16_s0` (**recommended**) | Qwen3-VL-2B | 16 actions |
+| `skel_tokmean_q3-2b/OF-Syn_runA_T16_s0` | Qwen3-VL-2B | fall / non-fall (binary) |
+| `skel_tokmean_q25-3b/OF-Syn-multiclass_runA_T16_s0` | Qwen2.5-VL-3B | 16 actions |
+
+**Training**
+- Data: OF-Syn (OmniFall synthetic videos), train split only.
+- Method:
+  - Videos are cut into 1.6 s clips (16 frames).
+  - YOLO11x-pose joints go to ST-GCN, and 4 frames of the same clip go to the VLM. The VLM is frozen.
+  - The two features are concatenated and trained as a **16-class action classifier** (walk, fall, fallen, sitting, lying, ...).
+  - 30 epochs, 3 seeds.
+
+**Evaluation**
+- Data: datasets not used in training. FallVision test, GMDCSA24 and CAUCAFall, plus OF-Syn test.
+- Method: training is 16-class, but evaluation is **binary, fall vs. non-fall**.
+  - Fall score = p(fall), the softmax probability of the fall class.
+  - Clip AUROC: a clip is positive if it overlaps a fall segment by at least 0.3 s.
+  - Video AUROC: the video score is the maximum clip score.
+  - Alarm AUROC (auxiliary): uses p(fall) + p(fallen), so the fallen state also counts.
 
 ## Laptop inference (Mac, real time)
 

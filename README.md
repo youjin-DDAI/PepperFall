@@ -96,6 +96,19 @@ python eval/summarize_event.py       # all models, same protocol -> results/even
 python report/make_figs.py           # report figure
 ```
 
+## Laptop inference (Mac, real time)
+
+`infer/` runs a trained checkpoint on a laptop (Apple Silicon `mps`) with the same preprocessing as training.
+
+```bash
+pip install -r requirements-mac.txt
+python infer/run.py --ckpt CKPT_DIR --source video.mp4            # offline check
+python infer/run.py --ckpt CKPT_DIR --source camera --show        # laptop webcam
+python infer/run.py --ckpt CKPT_DIR --source pepper:PEPPER_IP --show
+```
+`CKPT_DIR` is a run folder with `best.pt` and `metrics.json`. The VLM is chosen from the folder name (`*_q25-3b` → Qwen2.5-VL-3B, `*_q3-2b` → Qwen3-VL-2B, no suffix → Qwen2.5-VL-7B) or set with `--vlm-model`.
+For Pepper, copy `infer/pepper_bridge.py` to the robot and run it there (Python 2.7 + NAOqi); it streams the head camera to the laptop and speaks when the laptop raises an alarm.
+
 ## Labels
 
 - **video**: every clip of a fall video is positive (FallVision's labeling).

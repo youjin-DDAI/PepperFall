@@ -1,0 +1,111 @@
+{
+  "mode": "skel_tokmean",
+  "train": [
+    "OF-Syn"
+  ],
+  "label": "event",
+  "filter": null,
+  "run": "A",
+  "T": 16,
+  "seed": 0,
+  "val_thr_recall90": 0.8256351351737976,
+  "best_val_clip_auroc": 0.9843424083147936,
+  "train_time_s": 877.2,
+  "eval": {
+    "OF-Syn/test": {
+      "clip_auroc": 0.9750273048475615,
+      "video_auroc": 0.9911490854374422,
+      "static_clip_auroc": NaN,
+      "static_video_auroc": NaN,
+      "static_skel_clip_auroc": 0.9695464187178994,
+      "static_skel_video_auroc": 0.9881109263509984,
+      "by_elevation": {
+        "top": {
+          "clip_auroc": 0.9687323448309406,
+          "video_auroc": 0.9885803851321092
+        },
+        "high": {
+          "clip_auroc": 0.9768742507909682,
+          "video_auroc": 0.9896962706651288
+        },
+        "eye": {
+          "clip_auroc": 0.9713719276798353,
+          "video_auroc": 0.9886666666666667
+        },
+        "low": {
+          "clip_auroc": 0.9817712003758514,
+          "video_auroc": 0.9964866051822574
+        }
+      },
+      "alarm_clip_auroc": 0.9279975865593972,
+      "fall_rate_by_action": {
+        "walk": 0.006134969325153374,
+        "fall": 0.9101382488479263,
+        "fallen": 0.292358803986711,
+        "sit_down": 0.02830188679245283,
+        "sitting": 0.018821603927986905,
+        "lie_down": 0.08187134502923976,
+        "lying": 0.007506255212677231,
+        "stand_up": 0.13070539419087138,
+        "standing": 0.005165289256198347,
+        "other": 0.1137370753323486,
+        "kneel_down": 1.0,
+        "kneeling": 0.11904761904761904,
+        "squat_down": 0.058823529411764705,
+        "squatting": 0.0,
+        "crawl": 0.3125,
+        "jump": 0.21621621621621623
+      }
+    },
+    "GMDCSA24/test": {
+      "clip_auroc": 0.8860312294001318,
+      "video_auroc": 0.9624765478424016,
+      "static_clip_auroc": NaN,
+      "static_video_auroc": NaN,
+      "static_skel_clip_auroc": 0.8669454515491102,
+      "static_skel_video_auroc": 0.9469981238273921,
+      "alarm_clip_auroc": 0.8692911747659999,
+      "fall_rate_by_action": {
+        "walk": 0.037037037037037035,
+        "fall": 0.7577319587628866,
+        "fallen": 0.22448979591836735,
+        "sit_down": 0.15384615384615385,
+        "sitting": 0.0,
+        "lie_down": 0.04,
+        "lying": 0.0,
+        "stand_up": 0.02040816326530612,
+        "standing": 0.024390243902439025,
+        "other": 0.053164556962025315
+      }
+    },
+    "CAUCAFall/test": {
+      "clip_auroc": 0.7860624379108453,
+      "video_auroc": 0.9872000000000001,
+      "static_clip_auroc": NaN,
+      "static_video_auroc": NaN,
+      "static_skel_clip_auroc": 0.774965652808015,
+      "static_skel_video_auroc": 0.9964,
+      "alarm_clip_auroc": 0.8946859903381642,
+      "fall_rate_by_action": {
+        "walk": 0.03553299492385787,
+        "fall": 0.8176100628930818,
+        "fallen": 0.6111111111111112,
+        "sit_down": 0.02127659574468085,
+        "sitting": 0.0,
+        "lie_down": 0.2,
+        "lying": 0.3333333333333333,
+        "stand_up": 0.21212121212121213,
+        "standing": 0.0,
+        "other": 0.2181208053691275
+      }
+    },
+    "FallVision/test": {
+      "clip_auroc": 0.8487589551673282,
+      "video_auroc": 0.8947503860010293,
+      "static_clip_auroc": NaN,
+      "static_video_auroc": NaN,
+      "static_skel_clip_auroc": 0.8296463401127374,
+      "static_skel_video_auroc": 0.8795676788471436
+    }
+  }
+}

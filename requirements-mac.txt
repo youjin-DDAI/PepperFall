@@ -1,0 +1,11 @@
+# Laptop inference (Apple Silicon, device "mps"). Python 3.10-3.11.
+torch>=2.6
+torchvision
+transformers==5.20.2
+accelerate
+ultralytics
+opencv-python
+numpy
+pandas
+pyyaml
+pillow

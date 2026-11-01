@@ -27,3 +27,7 @@ __pycache__/
 *.pt
 !/environment.yml
 !/requirements.txt
+!/infer/
+!/requirements-mac.txt
+!/checkpoints/
+!/checkpoints/**/*.pt

@@ -59,7 +59,7 @@ def merge(out_dir, clips_dir, split):
     key = {(v, int(c)): i for i, (v, c) in enumerate(zip(z["video_id"], z["clip_idx"]))}
     parts = sorted(out_dir.glob(f"{split}_tokens_shard*.npz"))
     if parts and "tokmean" in np.load(parts[0]).files:  # extracted with --mean-only
-        mean = np.zeros((len(key), 2 * 3584), np.float16)
+        mean = np.zeros((len(key), np.load(parts[0])["tokmean"].shape[1]), np.float16)
         pfall = np.full(len(key), np.nan, np.float32)
         filled = np.zeros(len(key), bool)
         for p in parts:
@@ -74,7 +74,8 @@ def merge(out_dir, clips_dir, split):
             p.unlink()
         print(f"{split}: tokmean {mean.shape} (mean-only)")
         return
-    tok = np.lib.format.open_memmap(out_dir / f"{split}_tokens.npy", "w+", np.float16, (len(key), N_TOK, 3584))
+    dim = np.load(parts[0], mmap_mode="r")["tok"].shape[-1]
+    tok = np.lib.format.open_memmap(out_dir / f"{split}_tokens.npy", "w+", np.float16, (len(key), N_TOK, dim))
     filled = np.zeros(len(key), bool)
     pfall = np.full(len(key), np.nan, np.float32)
     for p in parts:
@@ -110,11 +111,13 @@ def main():
     ap.add_argument("--frames", default="normal", choices=["normal", "last", "reverse"],
                     help="frame perturbation for shortcut checks: last = repeat last frame, reverse = reverse order")
     ap.add_argument("--mean-only", action="store_true", help="save only tokmean / pfall (no tokens for cross-attention)")
+    ap.add_argument("--tag", default="", help="feature folder suffix for a non-default VLM, e.g. q25-3b -> vlm_T16_q25-3b")
     ap.add_argument("--ext", default=None, help="external dataset name (data/processed/ext_{ext}). Auto-merge after extraction")
     args = ap.parse_args()
 
     base = ROOT / "data/processed" / (f"ext_{args.ext}" if args.ext else "")
-    out_dir = base / (f"vlm_T{args.T}" + ("" if args.frames == "normal" else f"_{args.frames}"))
+    out_dir = base / (f"vlm_T{args.T}" + ("" if args.frames == "normal" else f"_{args.frames}") +
+                      (f"_{args.tag}" if args.tag else ""))
     clips_dir = base / f"runA_T{args.T}"
     split_dir = base if args.ext else ROOT / "data/processed/splits"
     if args.ext:

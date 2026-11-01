@@ -60,9 +60,10 @@ def clip_frames(path, n_src, fps, T):
 class VLM:
     def __init__(self, name, device):
         import torch
-        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
-        self.torch = torch
-        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration, Qwen3VLForConditionalGeneration
+        self.torch, self.qwen3 = torch, "Qwen3-VL" in name
+        cls = Qwen3VLForConditionalGeneration if self.qwen3 else Qwen2_5_VLForConditionalGeneration
+        self.model = cls.from_pretrained(
             name, dtype=torch.bfloat16, attn_implementation="sdpa", device_map=device).eval()
         self.proc = AutoProcessor.from_pretrained(name)
         self.proc.tokenizer.padding_side = "left"
@@ -73,8 +74,12 @@ class VLM:
     def _inputs(self, clips, prompt, fps):
         msgs = [{"role": "user", "content": [{"type": "video"}, {"type": "text", "text": prompt}]}]
         text = self.proc.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
-        return self.proc(text=[text] * len(clips), videos=clips, fps=fps, padding=True,
-                         return_tensors="pt").to(self.model.device)
+        kw = {"fps": fps}
+        if self.qwen3:  # frames are already sampled; pass their timing explicitly
+            kw = {"video_metadata": [{"fps": fps, "total_num_frames": len(c), "frames_indices": list(range(len(c)))}
+                                     for c in clips], "do_sample_frames": False}
+        return self.proc(text=[text] * len(clips), videos=clips, padding=True,
+                         return_tensors="pt", **kw).to(self.model.device)
 
     def run(self, clips, fps, max_new_tokens=60):
         torch = self.torch

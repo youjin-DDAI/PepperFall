@@ -42,6 +42,7 @@ from train.train_stgcn import LOG_FIELDS, augment, tb_log, weighted_bce  # noqa:
 ACTIONS = ["walk", "fall", "fallen", "sit_down", "sitting", "lie_down", "lying", "stand_up", "standing", "other",
            "kneel_down", "kneeling", "squat_down", "squatting", "crawl", "jump"]
 MODES = ("stgcn", "hidden", "tokmean", "skel_tokmean", "skel_xattn", "skel_xattn_sm", "zeroshot")
+VLM_TAG = ""  # feature folder suffix for a non-default VLM (--vlm-tag)
 EVAL_SETS = [("OF-Syn", "test"), ("GMDCSA24", "test"), ("CAUCAFall", "test"), ("FallVision", "test")]
 _OFSYN_META = None
 
@@ -96,14 +97,14 @@ def feat_of(mode):
 def load_vlm(name, split, T, feat, frames="normal"):
     """(emb, pfall), or None if no features. Row order same as run{A,B}_T{T}/{split}.npz."""
     v = ROOT / "data/processed" / ("" if name == "FallVision" else f"ext_{name}") / \
-        (f"vlm_T{T}" + ("" if frames == "normal" else f"_{frames}"))
+        (f"vlm_T{T}" + ("" if frames == "normal" else f"_{frames}") + (f"_{VLM_TAG}" if VLM_TAG else ""))
     f = v / f"{split}_{'tokens' if feat == 'tokens' else 'tokmean'}.npy"
     if not f.exists():
         return None
     e = np.load(f, mmap_mode="r" if feat == "tokens" else None)  # tokens (N, 73, 3584) fp16 via memmap
     pf = v / f"{split}_pfall.npy"  # original FallVision uses p_fall from vlm_captions.py (same question, same computation)
     pf = np.load(pf) if pf.exists() else pd.read_csv(v / f"{split}.csv").p_fall.to_numpy(np.float32)
-    return (e[:, 3584:] if feat == "hidden" else e), pf.astype(np.float32)
+    return (e[:, e.shape[1] // 2:] if feat == "hidden" else e), pf.astype(np.float32)
 
 
 def load(name, split, run, T, feat=None):
@@ -117,10 +118,10 @@ def load(name, split, run, T, feat=None):
     return z
 
 
-def make_model(mode, T, cfg, n_out=1):
+def make_model(mode, T, cfg, n_out=1, vlm_dim=None):
     if mode == "stgcn":
         return STGCN(num_outputs=n_out, dropout=cfg["dropout"])
-    return ZeroShot() if mode == "zeroshot" else build_model(mode, cfg, T, n_out)
+    return ZeroShot() if mode == "zeroshot" else build_model(mode, cfg, T, n_out, vlm_dim)
 
 
 @torch.no_grad()
@@ -199,9 +200,12 @@ def main():
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--label", choices=["event", "video", "multiclass"], default="event",
                     help="video = train / select external datasets on video label y too (control: event-label effect vs data volume)")
+    ap.add_argument("--vlm-tag", default="", help="use VLM features from vlm_T{T}_{tag} (e.g. q25-3b); results go to {mode}_{tag}/")
     ap.add_argument("--filter", default=None, help="OF-Syn train / val video filter, e.g. camera_elevation=high,top")
     ap.add_argument("--eval-only", default=None, help="stgcn checkpoint folder to evaluate only (uses best.pt and run from metrics.json)")
     args = ap.parse_args()
+    global VLM_TAG
+    VLM_TAG = args.vlm_tag
     cfg = yaml.safe_load(open(args.config or ROOT / f"configs/{'stgcn' if args.mode == 'stgcn' else 'fusion'}.yaml"))
     if args.epochs:
         cfg["epochs"] = args.epochs
@@ -270,9 +274,11 @@ def main():
 
     tag = "+".join(args.train) + (f"[{args.filter.replace('=', '-').replace(',', '+')}]" if args.filter else "") + \
         {"event": "", "video": "-videolabel", "multiclass": "-multiclass"}[args.label]
-    out = ROOT / "results/event" / ("" if args.mode == "stgcn" else args.mode) / f"{tag}_run{args.run}_T{args.T}_s{args.seed}"
+    mode_dir = "" if args.mode == "stgcn" else args.mode + (f"_{args.vlm_tag}" if args.vlm_tag else "")
+    out = ROOT / "results/event" / mode_dir / f"{tag}_run{args.run}_T{args.T}_s{args.seed}"
     out.mkdir(parents=True, exist_ok=True)
-    model = make_model(args.mode, args.T, cfg, len(ACTIONS) if multi else 1).to(dev)
+    vlm_dim = parts[0][2].shape[1] if feat in ("hidden", "tokmean") else None
+    model = make_model(args.mode, args.T, cfg, len(ACTIONS) if multi else 1, vlm_dim).to(dev)
     score = AlarmScore(model, SCORES["fall"]) if multi else model  # binary score for eval / model selection
     opt = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"])
     steps = cfg["epochs"] * int(np.ceil(len(y) / cfg["batch_size"]))

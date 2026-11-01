@@ -26,14 +26,14 @@ QWEN_DIM = 3584
 
 class FusionNet(nn.Module):
     def __init__(self, mode, text_hidden=128, hidden=128, dropout=0.3, stgcn_dropout=0.1,
-                 modality_drop=0.15, n_out=1):
+                 modality_drop=0.15, n_out=1, vlm_dim=None):
         super().__init__()
         assert mode in MODES, mode
         self.mode, self.modality_drop = mode, modality_drop
         self.use_skel, self.use_pfall = mode not in ("text", "hidden", "tokmean"), mode.endswith("pfall")
         self.vlm_feat = "hidden" if "hidden" in mode else "tokmean" if "tokmean" in mode else "text"
         self.stgcn = STGCN(dropout=stgcn_dropout) if self.use_skel else None
-        dim = VLM_DIM[self.vlm_feat]
+        dim = vlm_dim or VLM_DIM[self.vlm_feat]
         norm = [nn.LayerNorm(dim)] if self.vlm_feat != "text" else []  # normalize: Qwen hidden has a large value range
         self.text_proj = nn.Sequential(*norm, nn.Linear(dim, text_hidden), nn.ReLU(inplace=True), nn.Dropout(dropout))
         d = text_hidden + (self.stgcn.feat_dim if self.use_skel else 0) + int(self.use_pfall)
@@ -132,10 +132,10 @@ class CrossAttnFusion(nn.Module):
         return logit
 
 
-def build_model(mode, cfg, T, n_out=1):
+def build_model(mode, cfg, T, n_out=1, vlm_dim=None):
     assert n_out == 1 or not mode.startswith("skel_xattn"), "cross-attention supports binary output only"
     if mode == "skel_xattn":
         return CrossAttnFusion(T=T, stgcn_dropout=cfg["dropout"], **cfg["xattn"])
     if mode == "skel_xattn_sm":
         return CrossAttnFusion(T=T, stgcn_dropout=cfg["dropout"], **{**cfg["xattn"], "vlm_drop": 0.5}, use_global=False)
-    return FusionNet(mode, stgcn_dropout=cfg["dropout"], n_out=n_out, **cfg["fusion"])
+    return FusionNet(mode, stgcn_dropout=cfg["dropout"], n_out=n_out, vlm_dim=vlm_dim, **cfg["fusion"])
